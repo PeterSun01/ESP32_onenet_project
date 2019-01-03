@@ -15,6 +15,10 @@
 #include "Http.h"
 #include "dht11.h"
 #include "Beep.h"
+#include "sht31.h"
+#include "PMS7003.h"
+
+
 
 
 //解析激活返回数据
@@ -65,23 +69,18 @@ esp_err_t parse_objects_http_active(char *http_json_data)
         {
             json_data_parse_data = cJSON_GetObjectItem(json_data_parse, "data");
 
-            json_data_parse_data_deviceid = cJSON_GetObjectItem(json_data_parse_data, "device_id");
-            printf("device_id=%s\r\n", json_data_parse_data_deviceid->valuestring);
+            json_data_parse_data_deviceid = cJSON_GetObjectItem(json_data_parse_data, "DeviceId");
+            printf("DeviceId=%s\r\n", json_data_parse_data_deviceid->valuestring);
 
-            //写入device_id
-            sprintf(Device_id,"%s%c",json_data_parse_data_deviceid->valuestring,'\0');           
-            E2prom_Write(DEVICEID_ADDR,(uint8_t *)Device_id, DEVICEID_LEN);
+            //写入DeviceId
+            sprintf(DeviceId,"%s%c",json_data_parse_data_deviceid->valuestring,'\0');           
+            E2prom_Write(DEVICEID_ADDR,(uint8_t *)DeviceId, DEVICEID_LEN);
         }
 
     }
     cJSON_Delete(json_data_parse);
     return 1;
 }
-
-
-
-
-
 
 
 
@@ -127,6 +126,10 @@ esp_err_t parse_Uart0(char *json_data)
 
         json_data_parse_RegisterCode = cJSON_GetObjectItem(json_data_parse, "RegisterCode"); 
         printf("RegisterCode= %s\n", json_data_parse_RegisterCode->valuestring);
+
+        char zero_data[256];
+        bzero(zero_data,sizeof(zero_data));
+        E2prom_Write(0x00, (uint8_t *)zero_data, sizeof(zero_data)); 
     
         sprintf(ProductId,"%s%c",json_data_parse_ProductID->valuestring,'\0');
         E2prom_Write(PRODUCTID_ADDR, (uint8_t *)ProductId, strlen(ProductId));
@@ -137,7 +140,7 @@ esp_err_t parse_Uart0(char *json_data)
         sprintf(RegisterCode,"%s%c",json_data_parse_RegisterCode->valuestring,'\0');
         E2prom_Write(REGISTERCODE_ADDR, (uint8_t *)RegisterCode, strlen(RegisterCode)); 
 
-        //清空Device_id存储，激活后获取
+        //清空DeviceId存储，激活后获取
         uint8_t data_write_0[DEVICEID_LEN]="\0";
         E2prom_Write(DEVICEID_ADDR, data_write_0, DEVICEID_LEN);
 
@@ -227,22 +230,34 @@ void create_mqtt_json(creat_json *pCreat_json)
 {
 
     cJSON *root = cJSON_CreateObject();
-    cJSON *next = cJSON_CreateObject();
+    //cJSON *next = cJSON_CreateObject();
 
-    struct dht11_reading dht11read;
+    if (sht31_readTempHum()) 
+    {		
+        double Temperature = sht31_readTemperature();
+        double Humidity = sht31_readHumidity();
 
-    cJSON_AddItemToObject(root, "led_on_off", cJSON_CreateNumber(Beep_status));
-    dht11read= DHT11_read();
-    if((dht11read.status!=-1)&&(dht11read.temperature!=-1)&&(dht11read.humidity!=-1))
+        cJSON_AddItemToObject(root, "Temperature", cJSON_CreateNumber(Temperature));
+        cJSON_AddItemToObject(root, "Humidity", cJSON_CreateNumber(Humidity)); 
+        ESP_LOGI("SHT30", "Temperature=%.1f, Humidity=%.1f", Temperature, Humidity);
+	} 
+    else 
     {
-        cJSON_AddItemToObject(root, "temperature", cJSON_CreateNumber(dht11read.temperature));
-        cJSON_AddItemToObject(root, "humidity", cJSON_CreateNumber(dht11read.humidity));      
-    }
-    cJSON_AddItemToObject(root, "speed", cJSON_CreateNumber(0));
-    cJSON_AddItemToObject(root, "position", next);
-    cJSON_AddItemToObject(next, "lon", cJSON_CreateNumber(121.48));
-    cJSON_AddItemToObject(next, "lat", cJSON_CreateNumber(38.96)); 
+		ESP_LOGE("SHT30", "SHT31_ReadTempHum : failed");
+	}
+    //cJSON_AddItemToObject(root, "LightLux", cJSON_CreateNumber(0));
+    cJSON_AddItemToObject(root, "PM25", cJSON_CreateNumber(PM2_5));
+    cJSON_AddItemToObject(root, "PM10", cJSON_CreateNumber(PM10));
+    ESP_LOGI("PMS7003", "PM2_5=%d,PM10=%d", PM2_5,PM10);
+    //cJSON_AddItemToObject(root, "HumanDetectionSwitch", cJSON_CreateNumber(1));
+    //cJSON_AddItemToObject(root, "Switch_JDQ", cJSON_CreateNumber(Beep_status));
     
+    wifi_ap_record_t wifidata;
+    if (esp_wifi_sta_get_ap_info(&wifidata) == 0)
+    {
+        cJSON_AddItemToObject(root, "RSSI", cJSON_CreateNumber(wifidata.rssi));
+    }
+
     char *cjson_printunformat;
     cjson_printunformat=cJSON_PrintUnformatted(root);
     pCreat_json->creat_json_c=strlen(cjson_printunformat);

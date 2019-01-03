@@ -20,6 +20,8 @@
 #include "dht11.h"
 #include "Key.h"
 #include "Beep.h"
+#include "sht31.h"
+#include "PMS7003.h"
 
 extern const int CONNECTED_BIT;
 
@@ -63,11 +65,11 @@ void app_main(void)
   ESP_ERROR_CHECK( nvs_flash_init() );
   ESP_LOGI("MAIN", "[APP] IDF version: %s", esp_get_idf_version());
   Led_Init();
-  E2prom_Init();
+  i2c_init();
   Uart0_Init();
   key_Init();
   Beep_Init();
-  DHT11_init();
+  PMS7003_Init();
 
   xTaskCreate(Uart0_Task, "Uart0_Task", 4096, NULL, 10, NULL);
 
@@ -98,17 +100,17 @@ void app_main(void)
   xEventGroupWaitBits(s_wifi_event_group, CONNECTED_BIT , false, true, portMAX_DELAY); 
 
 
-  //模拟清空Device_id，激活后获取
+  //模拟清空DeviceId，激活后获取
   //uint8_t data_write_0[DEVICEID_LEN]="\0";
   //E2prom_Write(DEVICEID_ADDR, data_write_0, DEVICEID_LEN);
 
-  /*step3 判断是否有Device_id****/
-  E2prom_Read(DEVICEID_ADDR,(uint8_t *)Device_id,DEVICEID_LEN);
-  printf("Device_id=%s\n", Device_id);
+  /*step3 判断是否有DeviceId****/
+  E2prom_Read(DEVICEID_ADDR,(uint8_t *)DeviceId,DEVICEID_LEN);
+  printf("DeviceId=%s\n", DeviceId);
 
-  if(strlen(Device_id)==0)//未获取到Device_id进行激活流程
+  if(strlen(DeviceId)==0)//未获取到DeviceId进行激活流程
   {
-    printf("no Device_id!\n");
+    printf("no DeviceId!\n");
 
     while(http_activate()==0)//注册失败
     {
@@ -116,8 +118,8 @@ void app_main(void)
     }
 
     //激活成功
-    E2prom_Read(DEVICEID_ADDR,(uint8_t *)Device_id,DEVICEID_LEN);
-    printf("Device_id=%s\n", Device_id);
+    E2prom_Read(DEVICEID_ADDR,(uint8_t *)DeviceId,DEVICEID_LEN);
+    printf("DeviceId=%s\n", DeviceId);
   } 
 
   /*******************************timer 1s init**********************************************/
