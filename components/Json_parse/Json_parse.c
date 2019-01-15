@@ -165,7 +165,7 @@ esp_err_t parse_Uart0(char *json_data)
 
 
 
-esp_err_t parse_objects_mqtt(char *json_data)
+/*esp_err_t parse_objects_mqtt(char *json_data)
 {
     cJSON *json_data_parse = NULL;
     cJSON *json_data_parse_value = NULL;
@@ -189,8 +189,8 @@ esp_err_t parse_objects_mqtt(char *json_data)
     }
     else
     {
-        json_data_parse_value = cJSON_GetObjectItem(json_data_parse, "switch1"); 
-        printf("switch1= %s\n", json_data_parse_value->valuestring);
+        json_data_parse_value = cJSON_GetObjectItem(json_data_parse, "switch"); 
+        printf("switch= %s\n", json_data_parse_value->valuestring);
         if(strcmp(json_data_parse_value->valuestring,"on")==0)
         {
             printf("switch on\n");
@@ -208,7 +208,7 @@ esp_err_t parse_objects_mqtt(char *json_data)
     
 
     return 1;
-}
+}*/
 
 
 
